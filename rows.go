@@ -35,6 +35,11 @@ type textRows struct {
 	mysqlRows
 }
 
+// RowColumns returns the raw columns from MySQL.
+func (rows *mysqlRows) RawColumns() []Field {
+	return rows.rs.columns
+}
+
 func (rows *mysqlRows) Columns() []string {
 	if rows.rs.columnNames != nil {
 		return rows.rs.columnNames
