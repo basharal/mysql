@@ -180,19 +180,24 @@ func (mc *mysqlConn) Prepare(query string) (driver.Stmt, error) {
 
 	// Read Result
 	columnCount, err := stmt.readPrepareResultPacket()
-	if err == nil {
-		if stmt.paramCount > 0 {
-			if err = mc.readUntilEOF(); err != nil {
-				return nil, err
-			}
-		}
-
-		if columnCount > 0 {
-			err = mc.readUntilEOF()
+	if err != nil {
+		return nil, err
+	}
+	if stmt.paramCount > 0 {
+		stmt.params, err = mc.readColumnsWithParams(stmt.paramCount, true)
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	return stmt, err
+	if columnCount > 0 {
+		stmt.columns, err = mc.readColumnsWithParams(int(columnCount), true)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return stmt, nil
 }
 
 func (mc *mysqlConn) interpolateParams(query string, args []driver.Value) (string, error) {
@@ -447,7 +452,7 @@ func (mc *mysqlConn) getSystemVar(name string) ([]byte, error) {
 	if err == nil {
 		rows := new(textRows)
 		rows.mc = mc
-		rows.rs.columns = []mysqlField{{fieldType: fieldTypeVarChar}}
+		rows.rs.columns = []Field{{fieldType: fieldTypeVarChar}}
 
 		if resLen > 0 {
 			// Columns
@@ -675,4 +680,28 @@ func (mc *mysqlConn) ResetSession(ctx context.Context) error {
 	}
 	mc.reset = true
 	return nil
+}
+
+// ResetConnection sends a comResetConn to MySQL, which clears all
+// prepared statements, temporary tables, locks...etc.
+func (mc *mysqlConn) ResetConnection(ctx context.Context) error {
+	if mc.closed.IsSet() {
+		return driver.ErrBadConn
+	}
+
+	if err := mc.watchCancel(ctx); err != nil {
+		return err
+	}
+	defer mc.finish()
+
+	if err := mc.writeCommandPacket(comResetConn); err != nil {
+		return mc.markBadConn(err)
+	}
+
+	return mc.readResultOK()
+}
+
+// Status returns the MySQL status
+func (mc *mysqlConn) Status() uint16 {
+	return uint16(mc.status)
 }

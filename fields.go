@@ -13,12 +13,12 @@ import (
 	"reflect"
 )
 
-func (mf *mysqlField) typeDatabaseName() string {
+func (mf *Field) typeDatabaseName() string {
 	switch mf.fieldType {
 	case fieldTypeBit:
 		return "BIT"
 	case fieldTypeBLOB:
-		if mf.charSet != collations[binaryCollation] {
+		if mf.charSet != uint16(collations[binaryCollation]) {
 			return "TEXT"
 		}
 		return "BLOB"
@@ -43,14 +43,14 @@ func (mf *mysqlField) typeDatabaseName() string {
 	case fieldTypeLong:
 		return "INT"
 	case fieldTypeLongBLOB:
-		if mf.charSet != collations[binaryCollation] {
+		if mf.charSet != uint16(collations[binaryCollation]) {
 			return "LONGTEXT"
 		}
 		return "LONGBLOB"
 	case fieldTypeLongLong:
 		return "BIGINT"
 	case fieldTypeMediumBLOB:
-		if mf.charSet != collations[binaryCollation] {
+		if mf.charSet != uint16(collations[binaryCollation]) {
 			return "MEDIUMTEXT"
 		}
 		return "MEDIUMBLOB"
@@ -65,7 +65,7 @@ func (mf *mysqlField) typeDatabaseName() string {
 	case fieldTypeShort:
 		return "SMALLINT"
 	case fieldTypeString:
-		if mf.charSet == collations[binaryCollation] {
+		if mf.charSet == uint16(collations[binaryCollation]) {
 			return "BINARY"
 		}
 		return "CHAR"
@@ -76,17 +76,17 @@ func (mf *mysqlField) typeDatabaseName() string {
 	case fieldTypeTiny:
 		return "TINYINT"
 	case fieldTypeTinyBLOB:
-		if mf.charSet != collations[binaryCollation] {
+		if mf.charSet != uint16(collations[binaryCollation]) {
 			return "TINYTEXT"
 		}
 		return "TINYBLOB"
 	case fieldTypeVarChar:
-		if mf.charSet == collations[binaryCollation] {
+		if mf.charSet == uint16(collations[binaryCollation]) {
 			return "VARBINARY"
 		}
 		return "VARCHAR"
 	case fieldTypeVarString:
-		if mf.charSet == collations[binaryCollation] {
+		if mf.charSet == uint16(collations[binaryCollation]) {
 			return "VARBINARY"
 		}
 		return "VARCHAR"
@@ -115,17 +115,71 @@ var (
 	scanTypeUnknown   = reflect.TypeOf(new(interface{}))
 )
 
-type mysqlField struct {
+// Field represents a MySQL field.
+type Field struct {
+	database  string
 	tableName string
+	orgTable  string
 	name      string
+	orgName   string
 	length    uint32
 	flags     fieldFlag
 	fieldType fieldType
 	decimals  byte
-	charSet   uint8
+	charSet   uint16
 }
 
-func (mf *mysqlField) scanType() reflect.Type {
+// Name returns the name of the field.
+func (mf *Field) Name() string {
+	return mf.name
+}
+
+// Type is the MySQL type of the field.
+func (mf *Field) Type() uint32 {
+	return uint32(mf.fieldType)
+}
+
+// Table is the table name.
+func (mf *Field) Table() string {
+	return mf.tableName
+}
+
+// OrgTable is the physical table name.
+func (mf *Field) OrgTable() string {
+	return mf.orgTable
+}
+
+// Database is the schema name.
+func (mf *Field) Database() string {
+	return mf.database
+}
+
+// OrgName is the physical name of the field.
+func (mf *Field) OrgName() string {
+	return mf.orgName
+}
+
+// Length is the maximum field length.
+func (mf *Field) Length() uint32 {
+	return uint32(mf.length)
+}
+
+// Charset is the character-set.
+func (mf *Field) Charset() uint16 {
+	return mf.charSet
+}
+
+// Decimals is the max shown decimals.
+func (mf *Field) Decimals() uint8 {
+	return mf.decimals
+}
+
+// Flags is the flags on the field.
+func (mf *Field) Flags() uint16 {
+	return uint16(mf.flags)
+}
+
+func (mf *Field) scanType() reflect.Type {
 	switch mf.fieldType {
 	case fieldTypeTiny:
 		if mf.flags&flagNotNULL != 0 {

@@ -631,10 +631,14 @@ func (mc *mysqlConn) handleOkPacket(data []byte) error {
 	return nil
 }
 
+func (mc *mysqlConn) readColumns(count int) ([]Field, error) {
+	return mc.readColumnsWithParams(count, false)
+}
+
 // Read Packets as Field Packets until EOF-Packet or an Error appears
 // http://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnDefinition41
-func (mc *mysqlConn) readColumns(count int) ([]mysqlField, error) {
-	columns := make([]mysqlField, count)
+func (mc *mysqlConn) readColumnsWithParams(count int, tableName bool) ([]Field, error) {
+	columns := make([]Field, count)
 
 	for i := 0; ; i++ {
 		data, err := mc.readPacket()
@@ -657,14 +661,15 @@ func (mc *mysqlConn) readColumns(count int) ([]mysqlField, error) {
 		}
 
 		// Database [len coded string]
-		n, err := skipLengthEncodedString(data[pos:])
+		database, _, n, err := readLengthEncodedString(data[pos:])
 		if err != nil {
 			return nil, err
 		}
+		columns[i].database = string(database)
 		pos += n
 
 		// Table [len coded string]
-		if mc.cfg.ColumnsWithAlias {
+		if tableName || mc.cfg.ColumnsWithAlias {
 			tableName, _, n, err := readLengthEncodedString(data[pos:])
 			if err != nil {
 				return nil, err
@@ -680,10 +685,11 @@ func (mc *mysqlConn) readColumns(count int) ([]mysqlField, error) {
 		}
 
 		// Original table [len coded string]
-		n, err = skipLengthEncodedString(data[pos:])
+		orgTable, _, n, err := readLengthEncodedString(data[pos:])
 		if err != nil {
 			return nil, err
 		}
+		columns[i].orgTable = string(orgTable)
 		pos += n
 
 		// Name [len coded string]
@@ -695,17 +701,18 @@ func (mc *mysqlConn) readColumns(count int) ([]mysqlField, error) {
 		pos += n
 
 		// Original name [len coded string]
-		n, err = skipLengthEncodedString(data[pos:])
+		orgName, _, n, err := readLengthEncodedString(data[pos:])
 		if err != nil {
 			return nil, err
 		}
+		columns[i].orgName = string(orgName)
 		pos += n
 
 		// Filler [uint8]
 		pos++
 
 		// Charset [charset, collation uint8]
-		columns[i].charSet = data[pos]
+		columns[i].charSet = binary.LittleEndian.Uint16(data[pos : pos+2])
 		pos += 2
 
 		// Length [uint32]

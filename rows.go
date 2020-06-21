@@ -16,7 +16,7 @@ import (
 )
 
 type resultSet struct {
-	columns     []mysqlField
+	columns     []Field
 	columnNames []string
 	done        bool
 }

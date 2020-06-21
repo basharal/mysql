@@ -87,6 +87,9 @@ const (
 	comStmtReset
 	comSetOption
 	comStmtFetch
+	comDaemon
+	comDumpGTID
+	comResetConn
 )
 
 // https://dev.mysql.com/doc/internals/en/com-query-response.html#packet-Protocol::ColumnType

@@ -20,6 +20,8 @@ type mysqlStmt struct {
 	mc         *mysqlConn
 	id         uint32
 	paramCount int
+	params     []Field
+	columns    []Field
 }
 
 func (stmt *mysqlStmt) Close() error {
@@ -34,6 +36,10 @@ func (stmt *mysqlStmt) Close() error {
 	err := stmt.mc.writeCommandPacketUint32(comStmtClose, stmt.id)
 	stmt.mc = nil
 	return err
+}
+
+func (stmt *mysqlStmt) Columns() []Field {
+	return stmt.columns
 }
 
 func (stmt *mysqlStmt) NumInput() int {
